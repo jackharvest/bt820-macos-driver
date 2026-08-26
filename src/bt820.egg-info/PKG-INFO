@@ -1,3 +1,17 @@
+Metadata-Version: 2.4
+Name: bt820
+Version: 1.0.0
+Summary: Userspace driver for the REKDOM BT820 4x6 thermal label printer (Rongta RP4xx / TSPL)
+License: MIT
+Project-URL: Homepage, https://github.com/jackharvest/bt820
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pyusb>=1.2.1
+Requires-Dist: Pillow>=10.0.0
+Requires-Dist: pypdfium2>=4.0.0
+Dynamic: license-file
+
 # BT820 — a userspace driver for the REKDOM BT820 4×6 thermal label printer
 
 Works on macOS 26 (Tahoe), where Apple removed both raw CUPS queues and
@@ -20,21 +34,6 @@ USB is a plain printer-class interface — **`0x0FE6:0x811E`**, bulk OUT `0x01`,
 bulk IN `0x81` — so we skip CUPS's device layer and write TSPL to the endpoint.
 
 ## Install
-
-**Homebrew (recommended).** Handles `libusb` and Python properly, no Gatekeeper
-prompts, works on Apple Silicon and Intel:
-
-```sh
-brew install jackharvest/tap/bt820
-```
-
-**Installer.** Double-click `BT820-1.0.0.pkg`. Bundles Python, `libusb` and
-pdfium, so it needs nothing preinstalled. Two caveats: it is **unsigned**, so
-the first launch needs right-click > Open or an approval in System Settings >
-Privacy & Security; and it is **Apple Silicon only**, because the bundled
-`libusb` is arm64. Intel users should take the Homebrew route.
-
-**From source.**
 
 ```sh
 ./install.sh
@@ -71,12 +70,8 @@ bin/bt820ctl stop        # stop it; will not come back at login
 bin/bt820ctl uninstall   # remove LaunchAgent, spool dir, and the CUPS queue
 ```
 
-To test the queue without wasting labels:
-
-```sh
-bin/bt820ctl dryrun on     # jobs render to a PNG instead of printing
-bin/bt820ctl dryrun off
-```
+To test the queue without wasting labels: `touch .dryrun` — jobs render to
+`.dryrun-preview.png` instead of printing. `rm .dryrun` to resume.
 
 ## Gotchas worth knowing
 
@@ -109,39 +104,14 @@ overrunning the head, so we round down to 808. The 0.02" comes off the margin.
 ## Layout
 
 ```
-bin/bt820print          CLI (repo: venv wrapper; installed: real binary)
-bin/bt820ctl            queue lifecycle (start/stop/status/dryrun/log/uninstall)
-bin/bt820-ippfilter     invoked by ippeveprinter once per job
-src/bt820/device.py     USB transport + TSPL status queries
-src/bt820/render.py     PDF/image -> 1-bit bitmap at 203 dpi
-src/bt820/tspl.py       TSPL job construction
-src/bt820_main.py       entry point for the frozen bundle
-share/bt820.conf        IPP attributes (4x6 media, formats, make/model)
-packaging/build-pkg.sh  build the .pkg installer
-packaging/gen-formula.py  regenerate the Homebrew formula from PyPI
-packaging/bt820.rb      the formula itself
+bin/bt820print       CLI
+bin/bt820ctl         queue lifecycle (start/stop/status/log/uninstall)
+bin/bt820-ippfilter  invoked by ippeveprinter once per job
+src/bt820/device.py  USB transport + TSPL status queries
+src/bt820/render.py  PDF/image -> 1-bit bitmap at 203 dpi
+src/bt820/tspl.py    TSPL job construction
+share/bt820.conf     IPP attributes (4x6 media, formats, make/model)
 ```
-
-The scripts work from either layout — the repo (`bin/` + `share/`) or a flat
-install like `/usr/local/lib/bt820` — by probing for `../share/bt820.conf`.
-
-## Releasing
-
-```sh
-packaging/build-pkg.sh          # -> build/BT820-<version>.pkg
-packaging/gen-formula.py v1.0.0 # refresh resource checksums
-```
-
-Then tag and push, and fill the formula's `sha256` (it is deliberately left as
-`REPLACE_AFTER_TAGGING`, since it can only be computed once GitHub serves the
-tag tarball):
-
-```sh
-curl -sL https://github.com/jackharvest/bt820/archive/refs/tags/v1.0.0.tar.gz | shasum -a 256
-```
-
-The formula belongs in a `jackharvest/homebrew-tap` repo as
-`Formula/bt820.rb`.
 
 ## License
 

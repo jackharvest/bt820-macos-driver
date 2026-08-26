@@ -1,0 +1,2 @@
+[console_scripts]
+bt820print = bt820.cli:main

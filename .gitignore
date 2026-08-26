@@ -4,3 +4,4 @@
 .dryrun-preview*.png
 __pycache__/
 *.pyc
+build/

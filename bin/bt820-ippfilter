@@ -3,20 +3,24 @@
 # CONTENT_TYPE holds its MIME type. Printing goes straight to USB, so we write
 # nothing to stdout.
 #
-# Touch $ROOT/.dryrun to make the queue render and log jobs without printing.
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+# Touch "$STATE/dryrun" to make the queue render and log jobs without printing.
+SELF=$(cd "$(dirname "$0")" && pwd)
+if [ -f "$SELF/../share/bt820.conf" ]; then
+  BIN="$SELF/bt820print"                      # repo layout
+else
+  BIN="$SELF/bt820print"                      # flat install layout
+fi
+STATE="$HOME/Library/Application Support/bt820"
 LOG="$HOME/Library/Logs/bt820-queue.log"
 
 exec >>"$LOG" 2>&1
 echo "--- $(date '+%Y-%m-%d %H:%M:%S') job=${IPP_JOB_NAME:-?} type=${CONTENT_TYPE:-?} file=$1"
 
 COPIES="${IPP_COPIES:-1}"
-if [ -f "$ROOT/.dryrun" ]; then
-  echo "DRY RUN (remove $ROOT/.dryrun to print for real)"
-  cp "$1" "$ROOT/.dryrun-job"
-  echo "saved job copy: $(file -b "$ROOT/.dryrun-job")"
-  "$ROOT/bin/bt820print" --preview "$ROOT/.dryrun-preview.png" "$1" || true
+if [ -f "$STATE/dryrun" ]; then
+  echo "DRY RUN (rm \"$STATE/dryrun\" to print for real)"
+  "$BIN" --preview "$STATE/dryrun-preview.png" "$1" || true
 else
-  "$ROOT/bin/bt820print" --copies "$COPIES" "$1"
+  "$BIN" --copies "$COPIES" "$1"
 fi
 echo "exit=$?"

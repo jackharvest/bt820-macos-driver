@@ -3,6 +3,8 @@
 macOS 26 (Tahoe) removed raw CUPS queues, so we bypass CUPS and write straight
 to the USB printer-class bulk endpoint.
 """
+import os
+import sys
 import time
 import usb.core
 import usb.util
@@ -12,14 +14,37 @@ from . import VID, PID
 EP_OUT, EP_IN = 0x01, 0x81
 
 
+def _find_backend():
+    """Locate libusb.
+
+    ctypes' default search misses Homebrew paths under some launch contexts,
+    and finds nothing at all inside a PyInstaller bundle, so try explicit
+    locations before falling back to pyusb's own lookup.
+    """
+    import usb.backend.libusb1
+
+    candidates = []
+    if getattr(sys, "frozen", False):                     # PyInstaller bundle
+        candidates.append(os.path.join(sys._MEIPASS, "libusb-1.0.0.dylib"))
+    candidates += [
+        "/opt/homebrew/lib/libusb-1.0.0.dylib",           # Apple Silicon brew
+        "/usr/local/lib/libusb-1.0.0.dylib",              # Intel brew
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            backend = usb.backend.libusb1.get_backend(find_library=lambda _p=path: _p)
+            if backend is not None:
+                return backend
+    return usb.backend.libusb1.get_backend()
+
+
 class BT820:
     def __init__(self, serial=None):
         self.dev = None
         self.serial = serial
 
     def __enter__(self):
-        kw = dict(idVendor=VID, idProduct=PID)
-        dev = usb.core.find(**kw)
+        dev = usb.core.find(idVendor=VID, idProduct=PID, backend=_find_backend())
         if dev is None:
             raise RuntimeError(
                 "BT820 not found on USB. Check the cable and that the printer is on."

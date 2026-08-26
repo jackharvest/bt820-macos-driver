@@ -1,9 +1,20 @@
 #!/bin/sh
 # Manage the BT820 print queue (an ippeveprinter instance run as a LaunchAgent).
+#
+# Works from either layout: the git repo (bin/ + share/) or a flat install
+# such as /usr/local/lib/bt820 created by the .pkg.
 set -e
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+SELF=$(cd "$(dirname "$0")" && pwd)
+if [ -f "$SELF/../share/bt820.conf" ]; then
+  BIN="$SELF/bt820print"; CONF="$SELF/../share/bt820.conf"
+else
+  BIN="$SELF/bt820print"; CONF="$SELF/bt820.conf"
+fi
+FILTER="$SELF/bt820-ippfilter"
+
 LABEL=com.jackharvest.bt820queue
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+STATE="$HOME/Library/Application Support/bt820"
 SPOOL="$HOME/Library/Caches/bt820-spool"
 LOG="$HOME/Library/Logs/bt820-queue.log"
 NAME="BT820 Label Printer"
@@ -11,7 +22,7 @@ QUEUE=BT820
 PORT=8820
 
 write_plist() {
-  mkdir -p "$HOME/Library/LaunchAgents" "$SPOOL"
+  mkdir -p "$HOME/Library/LaunchAgents" "$SPOOL" "$STATE"
   cat > "$PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -21,8 +32,8 @@ write_plist() {
   <key>ProgramArguments</key>
   <array>
     <string>/usr/bin/ippeveprinter</string>
-    <string>-a</string><string>$ROOT/share/bt820.conf</string>
-    <string>-c</string><string>$ROOT/bin/bt820-ippfilter</string>
+    <string>-a</string><string>$CONF</string>
+    <string>-c</string><string>$FILTER</string>
     <string>-d</string><string>$SPOOL</string>
     <string>-p</string><string>$PORT</string>
     <string>-l</string><string>USB</string>
@@ -42,10 +53,9 @@ case "${1:-status}" in
     write_plist
     launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
     launchctl bootstrap "gui/$(id -u)" "$PLIST"
-    # Give ippeveprinter a moment to bind before CUPS queries it.
-    sleep 2
+    sleep 2   # let ippeveprinter bind before CUPS queries it
     if ! lpstat -p "$QUEUE" >/dev/null 2>&1; then
-      # No -m: on macOS 26 every driver/PPD path is gone, and a bare -v on an
+      # No -m: macOS 26 removed every driver/PPD path, and a bare -v on an
       # ipp:// URI is the one remaining way to create a working queue.
       lpadmin -p "$QUEUE" -E -v "ipp://localhost:$PORT/ipp/print" -o printer-is-shared=false
       echo "Created CUPS queue \"$QUEUE\"."
@@ -55,7 +65,7 @@ case "${1:-status}" in
     ;;
   stop)
     launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-    echo "Queue stopped (it will not restart at login until you run: bt820ctl start)."
+    echo "Queue stopped (it will not restart at login until: bt820ctl start)."
     ;;
   status)
     if launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1; then
@@ -63,19 +73,24 @@ case "${1:-status}" in
     else
       echo "queue: stopped"
     fi
-    "$ROOT/bin/bt820print" --status || true
+    [ -f "$STATE/dryrun" ] && echo "DRY RUN is on (rm \"$STATE/dryrun\" to print for real)"
+    "$BIN" --status || true
+    ;;
+  dryrun)
+    mkdir -p "$STATE"
+    case "${2:-on}" in
+      on)  touch "$STATE/dryrun"; echo "Dry run ON -- jobs render to $STATE/dryrun-preview.png" ;;
+      off) rm -f "$STATE/dryrun"; echo "Dry run OFF -- jobs print for real" ;;
+    esac
     ;;
   log)  tail -n "${2:-40}" "$LOG" ;;
   uninstall)
     launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-    rm -f "$PLIST"
-    rm -rf "$SPOOL"
+    rm -f "$PLIST"; rm -rf "$SPOOL" "$STATE"
     lpadmin -x "$QUEUE" 2>/dev/null && echo "Removed CUPS queue \"$QUEUE\"." || true
-    echo "Removed: $PLIST and $SPOOL"
-    echo "Still on disk (delete by hand if you want them gone):"
-    echo "  $ROOT      -- the project itself"
-    echo "  $LOG       -- the queue log"
-    echo "Nothing else was touched -- no kexts, no system files, no sudo."
+    echo "Removed: $PLIST, $SPOOL, $STATE"
+    echo "Left alone: $LOG, and the program files themselves."
+    echo "No kexts, no system files, no sudo were ever involved."
     ;;
-  *) echo "usage: bt820ctl {start|stop|status|log [n]|uninstall}" >&2; exit 2 ;;
+  *) echo "usage: bt820ctl {start|stop|status|dryrun on|off|log [n]|uninstall}" >&2; exit 2 ;;
 esac

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bt820"
+version = "1.0.0"
+description = "Userspace driver for the REKDOM BT820 4x6 thermal label printer (Rongta RP4xx / TSPL)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+dependencies = ["pyusb>=1.2.1", "Pillow>=10.0.0", "pypdfium2>=4.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/jackharvest/bt820"
+
+[project.scripts]
+bt820print = "bt820.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["bt820"]
