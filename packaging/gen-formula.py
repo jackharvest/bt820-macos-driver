@@ -32,11 +32,11 @@ def pick(pkg, ver, *want):
     raise SystemExit(f"no {want} for {pkg} {ver}")
 
 
-def res(name, url, sha, indent="  "):
-    return (f'{indent}resource "{name}" do\n'
-            f'{indent}  url "{url}"\n'
-            f'{indent}  sha256 "{sha}"\n'
-            f'{indent}end\n')
+def res(name, url, sha):
+    return (f'  resource "{name}" do\n'
+            f'    url "{url}"\n'
+            f'    sha256 "{sha}"\n'
+            f'  end\n')
 
 
 pyusb = pick("pyusb", PINS["pyusb"], "sdist")
@@ -53,28 +53,47 @@ formula = f'''class Bt820 < Formula
   sha256 "REPLACE_AFTER_TAGGING"
   license "MIT"
 
-  depends_on "libusb"
-  depends_on "python@3.13"
-  # Pillow builds from source; these are its image backends.
+  # freetype through webp are Pillow's image backends; it builds from source.
   depends_on "freetype"
   depends_on "jpeg-turbo"
   depends_on "libtiff"
+  depends_on "libusb"
   depends_on "little-cms2"
   depends_on "openjpeg"
+  depends_on "python@3.13"
   depends_on "webp"
 
-{res("pyusb", *pyusb)}
 {res("pillow", *pillow)}
   # pypdfium2's sdist fetches a prebuilt pdfium during build, which the
   # Homebrew sandbox blocks -- use the per-arch wheels instead.
-  on_arm do
-{res("pypdfium2", *arm, indent="    ")}  end
+  resource "pypdfium2" do
+    on_arm do
+      url "{arm[0]}", using: :nounzip
+      sha256 "{arm[1]}"
+    end
 
-  on_intel do
-{res("pypdfium2", *x86, indent="    ")}  end
+    on_intel do
+      url "{x86[0]}", using: :nounzip
+      sha256 "{x86[1]}"
+    end
+  end
 
+{res("pyusb", *pyusb)}
   def install
-    virtualenv_install_with_resources
+    # jpeg-turbo is keg-only, so Pillow cannot find its headers on its own.
+    # Point the compiler at every image backend explicitly.
+    backends = %w[freetype jpeg-turbo libtiff little-cms2 openjpeg webp]
+    ENV.append "CPPFLAGS", backends.map {{ |f| "-I#{{Formula[f].opt_include}}" }}.join(" ")
+    ENV.append "LDFLAGS", backends.map {{ |f| "-L#{{Formula[f].opt_lib}}" }}.join(" ")
+
+    venv = virtualenv_create(libexec, "python3.13")
+    venv.pip_install resources.reject {{ |r| r.name == "pypdfium2" }}
+    # A wheel has to be handed to pip as a file, not staged as a source tree.
+    resource("pypdfium2").stage do
+      venv.pip_install Dir["*.whl"].first
+    end
+    venv.pip_install_and_link buildpath
+
     # bt820ctl finds its sibling binary and ../share/bt820.conf.
     bin.install "bin/bt820ctl", "bin/bt820-ippfilter"
     share.install "share/bt820.conf"
@@ -82,14 +101,13 @@ formula = f'''class Bt820 < Formula
 
   def caveats
     <<~EOS
-      Command-line printing works now:
+      Print a label:
         bt820print label.pdf
 
-      For a queue you can Cmd+P into (a local IPP Everywhere printer plus a
-      CUPS queue named BT820, started at login):
+      Add BT820 to the macOS print dialog (Cmd+P), started at login:
         bt820ctl start
 
-      To remove it again:
+      Remove it again:
         bt820ctl uninstall
     EOS
   end
