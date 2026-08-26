@@ -1,148 +1,233 @@
-# BT820 — a userspace driver for the REKDOM BT820 4×6 thermal label printer
+# BT820 Label Printer for macOS
 
-Works on macOS 26 (Tahoe), where Apple removed both raw CUPS queues and
-printer drivers/PPDs. No kexts, no system files, no `sudo`.
+Print 4×6 shipping labels on the **REKDOM BT820** from a Mac.
 
-## What this thing actually is
+macOS has no driver for this printer, and the vendor's download site is
+frequently down. This is a complete replacement — print from the command line,
+or add it as a normal printer and just hit **⌘P**.
 
-The BT820 is a **rebadged Rongta RP4xx**, and it speaks **TSPL** (TSC's label
-language). That wasn't in any documentation — it came out of the bundled
-Windows driver:
+Works on macOS 13 and later, including macOS 26 (Tahoe), where Apple removed the
+older printer-driver mechanisms that tools like this used to rely on.
+
+---
+
+## Install
+
+Pick whichever suits you.
+
+### Homebrew — recommended
+
+```sh
+brew install jackharvest/tap/bt820
+```
+
+Works on both Apple Silicon and Intel, and there are no security warnings to
+click through.
+
+### Installer
+
+Download **`BT820-1.0.0.pkg`** from
+[Releases](https://github.com/jackharvest/bt820/releases) and double-click it.
+Nothing else needs to be installed first.
+
+Two things to know:
+
+- macOS will say the app "cannot be opened because it is from an unidentified
+  developer." That's expected — this installer isn't signed with a paid Apple
+  developer certificate. **Right-click the .pkg → Open → Open**, or go to
+  System Settings → Privacy & Security and click **Open Anyway**.
+- It's **Apple Silicon only** (M1 and later). On an Intel Mac, use Homebrew.
+
+### From source
+
+```sh
+git clone https://github.com/jackharvest/bt820.git
+cd bt820 && ./install.sh
+```
+
+Needs Homebrew and Python 3. Everything lands in `.venv/` inside the folder.
+
+---
+
+## Print a label
+
+```sh
+bt820print label.pdf
+```
+
+PDFs, PNGs, JPEGs and GIFs all work. Carrier labels (UPS, FedEx, USPS) usually
+arrive as a 6×4 landscape file — those are rotated upright and scaled to fit
+automatically, so most of the time there's nothing to configure.
+
+Check the printer is talking to you:
+
+```sh
+bt820print --status
+```
+
+See what a label will look like *before* using one:
+
+```sh
+bt820print --preview check.png label.pdf
+```
+
+### Options you might actually want
+
+| | |
+|---|---|
+| `-n 3` | print 3 copies |
+| `-d 12` | darker (0–15, default 8) |
+| `-s 2` | slower, which prints cleaner (2–4) |
+| `-r 180` | rotate: `cw`, `ccw`, `180`, `none` |
+| `-p 2` | print page 2 of a multi-page PDF |
+| `--dither` | for photos — see the warning under Troubleshooting |
+
+---
+
+## Print from any app (⌘P)
+
+```sh
+bt820ctl start
+```
+
+That's it. **BT820** now shows up in the normal macOS print dialog from any
+app, and it comes back automatically after a reboot.
+
+```sh
+bt820ctl status         # is it running? is the printer ready?
+bt820ctl log            # what happened to my last job
+bt820ctl dryrun on      # test without wasting labels
+bt820ctl stop           # turn it off
+bt820ctl uninstall      # remove it completely
+```
+
+`dryrun on` makes jobs render to a PNG in
+`~/Library/Application Support/bt820/` instead of printing — handy for checking
+layout before committing a label to it.
+
+---
+
+## Troubleshooting
+
+**The label prints upside down.**
+Add `--direction 1`.
+
+**The printer spits out blank labels and keeps going.**
+It can't find the gaps between labels. If your labels have a black mark on the
+back instead of a die-cut gap, use `--bline 3` (the mark height in mm).
+Otherwise re-run the sensor calibration:
+
+```sh
+bt820print --calibrate
+```
+
+**Barcodes won't scan.**
+Don't use `--dither` on anything with a barcode — it breaks up the bars. Try a
+darker print (`-d 12`) or a slower one (`-s 2`) instead. `--threshold` also
+helps: lower puts down more ink.
+
+**Nothing prints and `--status` says it can't find the printer.**
+Check the USB cable and that the printer is powered on. If you installed from
+source or Homebrew, make sure `libusb` is present (`brew install libusb`).
+
+**The ⌘P queue stopped working.**
+
+```sh
+bt820ctl stop && bt820ctl start
+```
+
+**The print is very slightly narrower than the label.**
+That's deliberate — 3.98" instead of 4.00". See "Why 3.98 inches" below.
+
+---
+
+## How it works
+
+The BT820 is a **rebadged Rongta RP4xx** and speaks **TSPL**, TSC's label
+language. That isn't documented anywhere — it came out of picking apart the
+bundled Windows driver:
 
 | Evidence | Where |
 |---|---|
 | Literal string `TSPL` | `BT820dpi.XPD`, offset `0x48` |
 | `SIZE` / `GAP` / `DIRECTION` / `DENSITY` / `SPEED` / `BITMAP` / `PRINT 1,1` | format strings in `BT820Render.dll` |
 | `0xCB 0xCB` = **203 × 203 dpi** | `BT820dpi.XPD`, offset `0x8C` |
-| Rongta origin | `RongtaUSBMon.dll`, `RP4xxDriverInstall.exe` in `SETUP64/` |
+| Rongta origin | `RongtaUSBMon.dll`, `RP4xxDriverInstall.exe` |
 
-USB is a plain printer-class interface — **`0x0FE6:0x811E`**, bulk OUT `0x01`,
-bulk IN `0x81` — so we skip CUPS's device layer and write TSPL to the endpoint.
+Over USB it's an ordinary printer-class device — **`0x0FE6:0x811E`**, bulk OUT
+`0x01`, bulk IN `0x81`. So this writes TSPL straight to that endpoint rather
+than going through a driver.
 
-## Install
+The ⌘P queue is a local **IPP Everywhere** printer (`ippeveprinter`) running as
+a LaunchAgent, with a CUPS queue pointed at it. macOS still supports driverless
+IPP printers, so this works without any of the driver machinery Apple removed.
 
-**Homebrew (recommended).** Handles `libusb` and Python properly, no Gatekeeper
-prompts, works on Apple Silicon and Intel:
+Nothing here needs `sudo`, installs a kext, or touches a system file. Everything
+lives in your home folder (or `/usr/local` if you used the installer), and
+`bt820ctl uninstall` removes all of it.
 
-```sh
-brew install jackharvest/tap/bt820
-```
+### Why 3.98 inches
 
-**Installer.** Double-click `BT820-1.0.0.pkg`. Bundles Python, `libusb` and
-pdfium, so it needs nothing preinstalled. Two caveats: it is **unsigned**, so
-the first launch needs right-click > Open or an approval in System Settings >
-Privacy & Security; and it is **Apple Silicon only**, because the bundled
-`libusb` is arm64. Intel users should take the Homebrew route.
+TSPL's `BITMAP` command takes its width in whole **bytes**, and a 4" label at
+203 dpi is 812 dots — not divisible by 8. Rounding up to 816 risks driving the
+print head past its edge, so it rounds down to 808. The missing 0.02" comes out
+of the margin, not the label content.
 
-**From source.**
+### Notes for anyone building on this
 
-```sh
-./install.sh
-```
+Three things cost real time to work out, all in `share/bt820.conf`:
 
-Needs Homebrew (for `libusb`) and Python 3. Creates `.venv/` in this folder and
-touches nothing else. Safe to re-run.
+- `ippeveprinter` **rejects `-f`, `-M` and `-m` when `-a` is given** — it just
+  prints its usage text with no explanation. Formats and make/model have to go
+  in the attributes file instead.
+- Using `-a` **replaces** ippeveprinter's built-in attributes, which hardcode US
+  Letter. The 4×6 media collections must be spelled out in full or macOS lays
+  every job out at Letter size and the label prints tiny in one corner.
+- Don't declare `document-format-default`/`-supported` there — ippeveprinter
+  emits its own, and the duplicates make the printer fail IPP validation.
 
-## Print from the command line
+And on macOS 26 specifically: `lpadmin -m raw` and `-m everywhere` are both
+gone. A bare `lpadmin -v ipp://...` with **no** `-m` is the only form that still
+creates a working queue.
 
-```sh
-bin/bt820print label.pdf            # PDF or PNG/JPEG/GIF; auto-fits 4x6
-bin/bt820print --status             # firmware, codepage, paper/head state
-bin/bt820print --preview out.png x.pdf   # render without printing
-```
+---
 
-Useful flags: `-n` copies · `-d 0-15` darkness · `-s 2-4` speed ·
-`-r cw|ccw|180|none` rotation · `--dither` for photos · `-p N` page.
-
-## Print from any app (Cmd+P)
-
-```sh
-bin/bt820ctl start
-```
-
-This runs `ippeveprinter` as a LaunchAgent — a local IPP Everywhere printer —
-and registers a CUPS queue named **BT820** pointing at it. It survives reboots.
-Then just Cmd+P and pick **BT820**, or `lp -d BT820 label.pdf`.
-
-```sh
-bin/bt820ctl status      # queue state + live printer status
-bin/bt820ctl log 40      # recent jobs
-bin/bt820ctl stop        # stop it; will not come back at login
-bin/bt820ctl uninstall   # remove LaunchAgent, spool dir, and the CUPS queue
-```
-
-To test the queue without wasting labels:
-
-```sh
-bin/bt820ctl dryrun on     # jobs render to a PNG instead of printing
-bin/bt820ctl dryrun off
-```
-
-## Gotchas worth knowing
-
-**Label prints upside down** — `--direction 1`, or edit `DIRECTION` in
-`src/bt820/tspl.py`.
-
-**Printer feeds blank labels hunting for a gap** — your stock is black-mark, not
-die-cut. Use `--bline 3` (mark height in mm). Or re-run sensing with
-`bin/bt820print --calibrate`.
-
-**Barcodes scan poorly** — don't use `--dither` on barcodes; it destroys bar
-edges. Nudge `--threshold` (lower = more ink) or raise `-d` darkness instead.
-
-**Print is 3.98" wide, not 4.00"** — deliberate. TSPL's `BITMAP` takes width in
-whole *bytes*, and 812 dots isn't divisible by 8. Rounding up to 816 risks
-overrunning the head, so we round down to 808. The 0.02" comes off the margin.
-
-**Queue wedges after a rejected job** — `bin/bt820ctl stop && bin/bt820ctl start`.
-
-### Two constraints that shaped the design
-
-- `ippeveprinter` **rejects `-f`, `-M`, and `-m` when `-a` is given.** Formats
-  and make/model therefore live in `share/bt820.conf`.
-- Using `-a` **replaces** ippeveprinter's built-in attribute set, which hardcodes
-  US Letter. The full 4×6 media collections must be spelled out in that conf or
-  macOS lays every job out at Letter size and the label prints tiny in a corner.
-- Do **not** add `document-format-default`/`-supported` twice — ippeveprinter
-  emits its own, and duplicates make the printer fail IPP validation.
-
-## Layout
+## Project layout
 
 ```
-bin/bt820print          CLI (repo: venv wrapper; installed: real binary)
-bin/bt820ctl            queue lifecycle (start/stop/status/dryrun/log/uninstall)
-bin/bt820-ippfilter     invoked by ippeveprinter once per job
-src/bt820/device.py     USB transport + TSPL status queries
-src/bt820/render.py     PDF/image -> 1-bit bitmap at 203 dpi
-src/bt820/tspl.py       TSPL job construction
-src/bt820_main.py       entry point for the frozen bundle
-share/bt820.conf        IPP attributes (4x6 media, formats, make/model)
-packaging/build-pkg.sh  build the .pkg installer
+bin/bt820print            CLI
+bin/bt820ctl              queue lifecycle
+bin/bt820-ippfilter       invoked by ippeveprinter once per job
+src/bt820/device.py       USB transport + TSPL status queries
+src/bt820/render.py       PDF/image -> 1-bit bitmap at 203 dpi
+src/bt820/tspl.py         TSPL job construction
+share/bt820.conf          IPP attributes (4x6 media, formats, make/model)
+packaging/build-pkg.sh    build the .pkg installer
 packaging/gen-formula.py  regenerate the Homebrew formula from PyPI
-packaging/bt820.rb      the formula itself
 ```
 
-The scripts work from either layout — the repo (`bin/` + `share/`) or a flat
-install like `/usr/local/lib/bt820` — by probing for `../share/bt820.conf`.
+The scripts run from either layout — this repo, or a flat install like
+`/usr/local/lib/bt820` — by probing for `../share/bt820.conf`.
 
 ## Releasing
 
 ```sh
-packaging/build-pkg.sh          # -> build/BT820-<version>.pkg
-packaging/gen-formula.py v1.0.0 # refresh resource checksums
+packaging/build-pkg.sh            # -> build/BT820-<version>.pkg
+packaging/gen-formula.py v1.0.0   # refresh PyPI checksums
 ```
 
-Then tag and push, and fill the formula's `sha256` (it is deliberately left as
-`REPLACE_AFTER_TAGGING`, since it can only be computed once GitHub serves the
-tag tarball):
+Tag and push, then fill in the formula's `sha256` (it can only be computed once
+GitHub is serving the tag tarball):
 
 ```sh
 curl -sL https://github.com/jackharvest/bt820/archive/refs/tags/v1.0.0.tar.gz | shasum -a 256
 ```
 
-The formula belongs in a `jackharvest/homebrew-tap` repo as
-`Formula/bt820.rb`.
+The formula lives in `jackharvest/homebrew-tap` as `Formula/bt820.rb`.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+Not affiliated with REKDOM, Rongta, or TSC. Built by reverse-engineering a
+printer I own.

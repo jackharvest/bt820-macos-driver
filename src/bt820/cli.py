@@ -12,6 +12,15 @@ def main(argv=None):
     p = argparse.ArgumentParser(
         prog="bt820print",
         description="Print PDFs and images on a REKDOM BT820 4x6 thermal label printer.",
+        epilog="""examples:
+  bt820print label.pdf              print a shipping label
+  bt820print -n 3 label.png         three copies
+  bt820print --preview out.png x.pdf    check the layout without using a label
+  bt820print --status               is the printer connected and ready?
+
+  bt820ctl start                    add BT820 to the macOS print dialog
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("file", nargs="?", help="PDF or image to print")
     p.add_argument("-n", "--copies", type=int, default=1)
@@ -39,6 +48,9 @@ def main(argv=None):
     p.add_argument("--calibrate", action="store_true",
                    help="re-run gap sensing (feeds a few blank labels)")
     p.add_argument("--version", action="version", version=f"bt820 {__version__}")
+    if not (argv or sys.argv[1:]):
+        p.print_help()
+        return 0
     a = p.parse_args(argv)
 
     if a.status:
@@ -58,7 +70,7 @@ def main(argv=None):
         return 0
 
     if not a.file:
-        p.error("a file is required (or use --status / --calibrate)")
+        p.error("give me a file to print, or use --status / --calibrate")
 
     pages = range(page_count(a.file)) if a.pages == "all" else [int(a.pages) - 1]
 
