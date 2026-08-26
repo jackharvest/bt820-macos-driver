@@ -1,0 +1,6 @@
+.venv/
+.dryrun
+.dryrun-job
+.dryrun-preview*.png
+__pycache__/
+*.pyc

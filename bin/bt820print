@@ -1,0 +1,4 @@
+#!/bin/sh
+# Wrapper: runs the CLI inside the project venv.
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+exec "$ROOT/.venv/bin/python" -c 'import sys;sys.path.insert(0,sys.argv.pop(1));from bt820.cli import main;sys.exit(main())' "$ROOT/src" "$@"

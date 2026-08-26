@@ -1,0 +1,22 @@
+#!/bin/sh
+# Invoked by ippeveprinter once per document. The job file arrives as $1 and
+# CONTENT_TYPE holds its MIME type. Printing goes straight to USB, so we write
+# nothing to stdout.
+#
+# Touch $ROOT/.dryrun to make the queue render and log jobs without printing.
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+LOG="$HOME/Library/Logs/bt820-queue.log"
+
+exec >>"$LOG" 2>&1
+echo "--- $(date '+%Y-%m-%d %H:%M:%S') job=${IPP_JOB_NAME:-?} type=${CONTENT_TYPE:-?} file=$1"
+
+COPIES="${IPP_COPIES:-1}"
+if [ -f "$ROOT/.dryrun" ]; then
+  echo "DRY RUN (remove $ROOT/.dryrun to print for real)"
+  cp "$1" "$ROOT/.dryrun-job"
+  echo "saved job copy: $(file -b "$ROOT/.dryrun-job")"
+  "$ROOT/bin/bt820print" --preview "$ROOT/.dryrun-preview.png" "$1" || true
+else
+  "$ROOT/bin/bt820print" --copies "$COPIES" "$1"
+fi
+echo "exit=$?"

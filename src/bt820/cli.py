@@ -1,0 +1,95 @@
+"""Command line front end: bt820print."""
+import argparse
+import sys
+
+from . import __version__, DPI
+from .device import BT820
+from .render import render, page_count, IMG_W
+from . import tspl
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(
+        prog="bt820print",
+        description="Print PDFs and images on a REKDOM BT820 4x6 thermal label printer.",
+    )
+    p.add_argument("file", nargs="?", help="PDF or image to print")
+    p.add_argument("-n", "--copies", type=int, default=1)
+    p.add_argument("-p", "--pages", default="all",
+                   help="'all', or a 1-based page number for multi-page PDFs")
+    p.add_argument("-d", "--density", type=int, default=8, choices=range(0, 16),
+                   metavar="0-15", help="burn darkness (default 8)")
+    p.add_argument("-s", "--speed", type=int, default=4, choices=range(2, 5),
+                   metavar="2-4", help="inches/sec (default 4)")
+    p.add_argument("-r", "--rotate", default="auto",
+                   choices=["auto", "none", "cw", "ccw", "180"])
+    p.add_argument("--direction", type=int, default=0, choices=[0, 1],
+                   help="flip feed orientation if labels print upside down")
+    p.add_argument("--threshold", type=int, default=128,
+                   help="black/white cutoff, 0-255 (default 128)")
+    p.add_argument("--dither", action="store_true",
+                   help="dither instead of threshold -- for photos, not barcodes")
+    p.add_argument("--bline", type=float, metavar="MM",
+                   help="use black-mark sensing instead of gap sensing")
+    p.add_argument("--gap", type=float, default=2.0, metavar="MM",
+                   help="label gap in mm (default 2.0)")
+    p.add_argument("--preview", metavar="PNG",
+                   help="write the exact 1-bit bitmap here instead of printing")
+    p.add_argument("--status", action="store_true", help="report printer status and exit")
+    p.add_argument("--calibrate", action="store_true",
+                   help="re-run gap sensing (feeds a few blank labels)")
+    p.add_argument("--version", action="version", version=f"bt820 {__version__}")
+    a = p.parse_args(argv)
+
+    if a.status:
+        with BT820() as dev:
+            code, msg = dev.status()
+            info = dev.info()
+            print(f"firmware : {info['firmware']}")
+            print(f"codepage : {info['codepage']}")
+            print(f"serial   : {info['serial']}")
+            print(f"status   : {msg}" + (f" (0x{code:02X})" if code is not None else ""))
+        return 0 if code == 0 else 1
+
+    if a.calibrate:
+        with BT820() as dev:
+            dev.write(tspl.calibrate(a.gap))
+        print("calibration sent -- printer will feed to find the next gap")
+        return 0
+
+    if not a.file:
+        p.error("a file is required (or use --status / --calibrate)")
+
+    pages = range(page_count(a.file)) if a.pages == "all" else [int(a.pages) - 1]
+
+    jobs = []
+    for i in pages:
+        bw, h = render(a.file, page=i, rotate=a.rotate,
+                       threshold=a.threshold, dither=a.dither)
+        if a.preview:
+            out = a.preview if len(list(pages)) == 1 else f"{a.preview[:-4]}-{i+1}.png"
+            bw.save(out)
+            print(f"page {i+1}: {IMG_W}x{h} dots "
+                  f"({IMG_W/DPI:.2f}\" x {h/DPI:.2f}\") -> {out}")
+            continue
+        jobs.append(tspl.build(bw, h, density=a.density, speed=a.speed,
+                               gap_mm=a.gap, bline_mm=a.bline,
+                               direction=a.direction) + tspl.print_cmd(a.copies))
+
+    if a.preview:
+        return 0
+
+    with BT820() as dev:
+        code, msg = dev.status()
+        if code not in (0, None, 0x20):
+            print(f"printer not ready: {msg}", file=sys.stderr)
+            return 1
+        for n, job in enumerate(jobs, 1):
+            dev.write(job)
+        code, msg = dev.status()
+    print(f"printed {len(jobs)} label(s) x{a.copies} -- printer status: {msg}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
