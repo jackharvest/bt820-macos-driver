@@ -38,6 +38,8 @@ write_plist() {
     <string>-d</string><string>$SPOOL</string>
     <string>-p</string><string>$PORT</string>
     <string>-l</string><string>USB</string>
+    <!-- iOS browses the _universal subtype; without it AirPrint never lists us. -->
+    <string>-r</string><string>_print,_universal</string>
     <string>$NAME</string>
   </array>
   <key>RunAtLoad</key><true/>
@@ -61,9 +63,9 @@ create_queue() {
   ppd=$(mktemp -t bt820).ppd
   if [ -x "$IPP2PPD" ] && "$IPP2PPD" "$uri" "" >"$ppd" 2>/dev/null && [ -s "$ppd" ]; then
     lpadmin -p "$QUEUE" -E -v "$uri" -P "$ppd" \
-      -D "$NAME" -L "USB" -o printer-is-shared=false 2>&1 | grep -vi deprecated || true
+      -D "$NAME" -L "USB" 2>&1 | grep -vi deprecated || true
   else
-    lpadmin -p "$QUEUE" -E -v "$uri" -D "$NAME" -L "USB" -o printer-is-shared=false
+    lpadmin -p "$QUEUE" -E -v "$uri" -D "$NAME" -L "USB"
     echo "Note: no ipp2ppd on this system -- the queue works from the command"
     echo "line but may not show in Printers & Scanners."
   fi
@@ -109,6 +111,13 @@ case "${1:-status}" in
       off) rm -f "$STATE/dryrun"; echo "Dry run OFF -- jobs print for real" ;;
     esac
     ;;
+  share)
+    case "${2:-show}" in
+      on)  lpadmin -p "$QUEUE" -o printer-is-shared=true;  echo "Sharing on." ;;
+      off) lpadmin -p "$QUEUE" -o printer-is-shared=false; echo "Sharing off." ;;
+      show) lpoptions -p "$QUEUE" 2>/dev/null | tr ' ' '\n' | grep printer-is-shared || true ;;
+      *) echo "usage: bt820ctl share {on|off|show}" >&2; exit 2 ;;
+    esac ;;
   media)
     mkdir -p "$STATE"
     case "${2:-show}" in
@@ -150,5 +159,5 @@ case "${1:-status}" in
     echo "Left alone: $LOG, and the program files themselves."
     echo "No kexts, no system files, no sudo were ever involved."
     ;;
-  *) echo "usage: bt820ctl {start|stop|status|media continuous|gap|dryrun on|off|log [n]|uninstall}" >&2; exit 2 ;;
+  *) echo "usage: bt820ctl {start|stop|status|media continuous|gap|share on|off|dryrun on|off|log [n]|uninstall}" >&2; exit 2 ;;
 esac

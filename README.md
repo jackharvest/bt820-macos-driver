@@ -158,6 +158,28 @@ layout before committing a label to it.
 
 ---
 
+## Print from an iPhone or iPad (AirPrint)
+
+```sh
+bt820ctl start
+```
+
+The printer appears in the iOS share sheet under **Print** as *BT820 Label
+Printer*, on the same Wi-Fi network. Nothing to install on the phone.
+
+This does **not** go through macOS's "Share this printer" toggle — on macOS 26
+that never advertises the `URF=` capability iOS requires, so the printer stays
+invisible no matter what you tick. Instead the driver's own IPP printer
+registers the `_universal` Bonjour subtype that iOS actually browses.
+
+iOS sends **Apple Raster** (`image/urf`) rather than PDF, which
+`src/bt820/urf.py` decodes directly. Because iOS rasterises to the size and
+resolution we advertise, pages arrive already at 4×6 and 203 dpi.
+
+Your Mac must be awake and `bt820ctl start` must have run.
+
+---
+
 ## Troubleshooting
 
 **Every label prints twice.**
@@ -165,6 +187,18 @@ You're feeding labels one at a time on gap media. Run
 `bt820ctl media continuous` — see "Feeding labels by hand" above. This is the
 printer's paper-out recovery, not a duplicated job: the driver sends exactly one
 `BITMAP` and one `PRINT` per label.
+
+**The iPhone doesn't list the printer.**
+Check the Mac is awake and on the same Wi-Fi, then confirm it is being
+advertised:
+
+```sh
+dns-sd -B _ipp._tcp,_universal local
+```
+
+*BT820 Label Printer* should be listed. If not, run `bt820ctl start`. Note that
+System Settings' "Share this printer" is **not** the mechanism here and won't
+help.
 
 **The label prints upside down.**
 Add `--direction 1`.

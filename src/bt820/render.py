@@ -16,11 +16,22 @@ ROTATIONS = {
 }
 
 
+def _sniff(path):
+    with open(path, "rb") as fh:
+        return fh.read(8)
+
+
 def load(path, page=0):
     """Return a grayscale PIL image, rasterizing PDFs at 2x target density."""
-    with open(path, "rb") as fh:
-        head = fh.read(5)
-    if head == b"%PDF-":
+    head = _sniff(path)
+    if head[:7] == b"UNIRAST":
+        # Apple Raster, i.e. what iOS sends over AirPrint. Already rasterised
+        # at the size and resolution we advertise, so no rescaling is needed
+        # beyond the usual fit.
+        from . import urf
+        with open(path, "rb") as fh:
+            return urf.decode(fh.read(), page)
+    if head[:5] == b"%PDF-":
         import pypdfium2 as pdfium
         doc = pdfium.PdfDocument(path)
         # Render at 2x so the downsample to 203 dpi has detail to average.
@@ -30,9 +41,13 @@ def load(path, page=0):
 
 
 def page_count(path):
-    with open(path, "rb") as fh:
-        if fh.read(5) != b"%PDF-":
-            return 1
+    head = _sniff(path)
+    if head[:7] == b"UNIRAST":
+        from . import urf
+        with open(path, "rb") as fh:
+            return urf.page_count(fh.read(12))
+    if head[:5] != b"%PDF-":
+        return 1
     import pypdfium2 as pdfium
     return len(pdfium.PdfDocument(path))
 

@@ -19,6 +19,8 @@ echo "--- $(date '+%Y-%m-%d %H:%M:%S') job=${IPP_JOB_NAME:-?} type=${CONTENT_TYP
 COPIES="${IPP_COPIES:-1}"
 if [ -f "$STATE/dryrun" ]; then
   echo "DRY RUN (rm \"$STATE/dryrun\" to print for real)"
+  cp "$1" "$STATE/dryrun-job"
+  echo "job saved: $(file -b "$STATE/dryrun-job")"
   "$BIN" --preview "$STATE/dryrun-preview.png" "$1" || true
 else
   "$BIN" --copies "$COPIES" "$1"
