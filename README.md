@@ -18,11 +18,14 @@ Pick whichever suits you.
 ### Homebrew — recommended
 
 ```sh
+brew tap jackharvest/tap
+brew trust jackharvest/tap
 brew install jackharvest/tap/bt820
 ```
 
 Works on both Apple Silicon and Intel, and there are no security warnings to
-click through.
+click through. Homebrew 6 requires the `brew trust` step for any third-party
+tap — without it you get *"Refusing to load formula from untrusted tap."*
 
 ### Installer
 
@@ -32,10 +35,11 @@ Nothing else needs to be installed first.
 
 Two things to know:
 
-- macOS will say the app "cannot be opened because it is from an unidentified
-  developer." That's expected — this installer isn't signed with a paid Apple
-  developer certificate. **Right-click the .pkg → Open → Open**, or go to
-  System Settings → Privacy & Security and click **Open Anyway**.
+- Because it was downloaded, macOS quarantines it, and it isn't signed with a
+  paid Apple developer certificate — so you'll likely see *"cannot be opened
+  because it is from an unidentified developer."* **Right-click the .pkg →
+  Open → Open**, or approve it in System Settings → Privacy & Security.
+  (A `.pkg` you built yourself is never quarantined and opens straight away.)
 - It's **Apple Silicon only** (M1 and later). On an Intel Mac, use Homebrew.
 
 ### From source
@@ -104,8 +108,8 @@ for.
 bt820ctl start
 ```
 
-That's it. **BT820** now shows up in the normal macOS print dialog from any
-app, and it comes back automatically after a reboot.
+That's it. **BT820 Label Printer** appears in System Settings → Printers &
+Scanners and in every app's ⌘P dialog, and it comes back after a reboot.
 
 ```sh
 bt820ctl status         # is it running? is the printer ready?
@@ -148,6 +152,11 @@ into a void.
 **Nothing prints and `--status` says it can't find the printer.**
 Check the USB cable and that the printer is powered on. If you installed from
 source or Homebrew, make sure `libusb` is present (`brew install libusb`).
+
+**The printer doesn't appear in Printers & Scanners.**
+Run `bt820ctl start` again — it detects a queue left in the old "raw" form and
+rebuilds it as a driverless one. See the note below on why raw queues are
+invisible.
 
 **The ⌘P queue stopped working.**
 
@@ -206,8 +215,19 @@ Three things cost real time to work out, all in `share/bt820.conf`:
   emits its own, and the duplicates make the printer fail IPP validation.
 
 And on macOS 26 specifically: `lpadmin -m raw` and `-m everywhere` are both
-gone. A bare `lpadmin -v ipp://...` with **no** `-m` is the only form that still
-creates a working queue.
+gone. A bare `lpadmin -v ipp://...` with no `-m` does create a working queue —
+but a **raw** one, which prints fine from `lp` yet is **hidden from Printers &
+Scanners**, so it never feels like a real printer.
+
+The way out is Apple's own `/System/Library/Printers/Libraries/ipp2ppd`, which
+turns a live IPP printer's attributes into a PPD. Feeding that to
+`lpadmin -P` produces a proper driverless queue —
+`printer-make-and-model` becomes `REKDOM BT820-AirPrint` instead of
+`Local Raw Printer` — and macOS displays it like any other printer.
+
+For that to work the printer must advertise `urf-supported`, which becomes the
+`URF=` key in its Bonjour TXT record. Without it macOS does not consider the
+printer driverless at all.
 
 ---
 

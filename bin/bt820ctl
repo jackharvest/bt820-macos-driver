@@ -19,6 +19,7 @@ SPOOL="$HOME/Library/Caches/bt820-spool"
 LOG="$HOME/Library/Logs/bt820-queue.log"
 NAME="BT820 Label Printer"
 QUEUE=BT820
+IPP2PPD=/System/Library/Printers/Libraries/ipp2ppd
 PORT=8820
 
 write_plist() {
@@ -48,6 +49,27 @@ write_plist() {
 PLIST
 }
 
+# A queue made with a bare -v and no driver comes out "raw", and macOS 26 hides
+# raw queues from Printers & Scanners entirely. Apple's ipp2ppd turns our own
+# IPP attributes into a PPD, which yields a proper driverless AirPrint queue.
+queue_is_raw() {
+  lpoptions -p "$QUEUE" 2>/dev/null | grep -q "Local Raw Printer"
+}
+
+create_queue() {
+  uri="ipp://localhost:$PORT/ipp/print"
+  ppd=$(mktemp -t bt820).ppd
+  if [ -x "$IPP2PPD" ] && "$IPP2PPD" "$uri" "" >"$ppd" 2>/dev/null && [ -s "$ppd" ]; then
+    lpadmin -p "$QUEUE" -E -v "$uri" -P "$ppd" \
+      -D "$NAME" -L "USB" -o printer-is-shared=false 2>&1 | grep -vi deprecated || true
+  else
+    lpadmin -p "$QUEUE" -E -v "$uri" -D "$NAME" -L "USB" -o printer-is-shared=false
+    echo "Note: no ipp2ppd on this system -- the queue works from the command"
+    echo "line but may not show in Printers & Scanners."
+  fi
+  rm -f "$ppd"
+}
+
 case "${1:-status}" in
   install|start)
     write_plist
@@ -55,10 +77,14 @@ case "${1:-status}" in
     launchctl bootstrap "gui/$(id -u)" "$PLIST"
     sleep 2   # let ippeveprinter bind before CUPS queries it
     if ! lpstat -p "$QUEUE" >/dev/null 2>&1; then
-      # No -m: macOS 26 removed every driver/PPD path, and a bare -v on an
-      # ipp:// URI is the one remaining way to create a working queue.
-      lpadmin -p "$QUEUE" -E -v "ipp://localhost:$PORT/ipp/print" -o printer-is-shared=false
+      create_queue
       echo "Created CUPS queue \"$QUEUE\"."
+    elif queue_is_raw; then
+      # Left over from an older version, which macOS will not display.
+      lpadmin -x "$QUEUE" 2>/dev/null || true
+      sleep 1
+      create_queue
+      echo "Rebuilt \"$QUEUE\" as a driverless queue so it appears in Settings."
     fi
     echo "Queue running as \"$NAME\" on port $PORT (CUPS queue: $QUEUE)."
     echo "Print with:  lp -d $QUEUE label.pdf      or Cmd+P and pick $QUEUE."
