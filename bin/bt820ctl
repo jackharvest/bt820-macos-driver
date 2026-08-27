@@ -109,6 +109,20 @@ case "${1:-status}" in
       off) rm -f "$STATE/dryrun"; echo "Dry run OFF -- jobs print for real" ;;
     esac
     ;;
+  media)
+    mkdir -p "$STATE"
+    case "${2:-show}" in
+      continuous)
+        printf 'media=continuous\n' > "$STATE/config"
+        echo "Media: continuous -- the printer will not look for gaps."
+        echo "Use this when feeding labels one at a time." ;;
+      gap)
+        printf 'media=gap\n' > "$STATE/config"
+        echo "Media: die-cut gap (rolls and fanfold stacks)." ;;
+      show)
+        if [ -f "$STATE/config" ]; then cat "$STATE/config"; else echo "media=gap (default)"; fi ;;
+      *) echo "usage: bt820ctl media {continuous|gap|show}" >&2; exit 2 ;;
+    esac ;;
   log)  tail -n "${2:-40}" "$LOG" ;;
   uninstall)
     launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
@@ -118,5 +132,5 @@ case "${1:-status}" in
     echo "Left alone: $LOG, and the program files themselves."
     echo "No kexts, no system files, no sudo were ever involved."
     ;;
-  *) echo "usage: bt820ctl {start|stop|status|dryrun on|off|log [n]|uninstall}" >&2; exit 2 ;;
+  *) echo "usage: bt820ctl {start|stop|status|media continuous|gap|dryrun on|off|log [n]|uninstall}" >&2; exit 2 ;;
 esac

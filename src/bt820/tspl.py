@@ -38,7 +38,13 @@ def build(bw, height, density=8, speed=4, gap_mm=2.0, bline_mm=None, direction=0
 
 
 def print_cmd(copies=1):
-    return f"PRINT {copies},1\r\n".encode()
+    """PRINT with a single argument.
+
+    TSPL2 defines PRINT m,n as m label sets by n copies, so PRINT 1,1 should
+    mean one label -- but this printer's firmware emits two for it. The
+    one-argument form gives exactly the number asked for.
+    """
+    return f"PRINT {copies}\r\n".encode()
 
 
 def calibrate(gap_mm=2.0):

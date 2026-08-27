@@ -1,11 +1,36 @@
 """Command line front end: bt820print."""
 import argparse
+import os
+import pathlib
 import sys
 
 from . import __version__, DPI
 from .device import BT820
 from .render import render, page_count, IMG_W
 from . import tspl
+
+
+CONFIG = pathlib.Path(
+    os.path.expanduser("~/Library/Application Support/bt820/config"))
+
+
+def load_config():
+    """Read persistent defaults, so the print queue behaves like the CLI.
+
+    Jobs arriving over the queue get no command-line flags, so anything that
+    has to hold for every job -- notably continuous vs gap media -- has to
+    live here.
+    """
+    cfg = {}
+    try:
+        for line in CONFIG.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                cfg[k.strip()] = v.strip()
+    except OSError:
+        pass
+    return cfg
 
 
 def main(argv=None):
@@ -40,8 +65,12 @@ def main(argv=None):
                    help="dither instead of threshold -- for photos, not barcodes")
     p.add_argument("--bline", type=float, metavar="MM",
                    help="use black-mark sensing instead of gap sensing")
-    p.add_argument("--gap", type=float, default=2.0, metavar="MM",
-                   help="label gap in mm (default 2.0)")
+    p.add_argument("--gap", type=float, default=None, metavar="MM",
+                   help="gap between die-cut labels in mm (default 2.0)")
+    p.add_argument("--continuous", action="store_true",
+                   help="continuous media: do not look for gaps between labels. "
+                        "Use this when feeding labels one at a time, otherwise "
+                        "the printer reprints on reload.")
     p.add_argument("--preview", metavar="PNG",
                    help="write the exact 1-bit bitmap here instead of printing")
     p.add_argument("--wait", type=float, default=60.0, metavar="SEC",
@@ -55,6 +84,18 @@ def main(argv=None):
         p.print_help()
         return 0
     a = p.parse_args(argv)
+
+    # Persistent defaults, overridden by anything given explicitly.
+    cfg = load_config()
+    if a.gap is None:
+        a.gap = 0.0 if cfg.get("media") == "continuous" else float(cfg.get("gap", 2.0))
+    if a.continuous:
+        a.gap = 0.0
+    for key, attr, cast in (("density", "density", int), ("speed", "speed", int),
+                            ("direction", "direction", int),
+                            ("threshold", "threshold", int)):
+        if key in cfg and p.get_default(attr) == getattr(a, attr):
+            setattr(a, attr, cast(cfg[key]))
 
     if a.status:
         with BT820() as dev:

@@ -86,12 +86,27 @@ bt820print --preview check.png label.pdf
 | `-p 2` | print page 2 of a multi-page PDF |
 | `--dither` | for photos — see the warning under Troubleshooting |
 | `--wait 120` | how long to wait for the printer to be ready (default 60s) |
+| `--continuous` | don't look for gaps between labels — see below |
 
 ### Feeding labels by hand
 
-If you feed labels one at a time rather than using a roll, the printer reports
-"out of paper" between them. `bt820print` waits for the next label instead of
-failing, and tells you it is waiting:
+If you feed labels one at a time rather than using a roll, **tell it once**:
+
+```sh
+bt820ctl media continuous
+```
+
+Without this the printer prints **two copies of everything**. In gap mode it
+finishes a label by hunting for the next gap; with nothing behind the label it
+runs the paper out, decides the job never finished, and reprints the moment you
+reload. Continuous media never hunts, so the job completes. Switch back with
+`bt820ctl media gap` for rolls and fanfold stacks.
+
+The setting lives in `~/Library/Application Support/bt820/config` and applies to
+⌘P jobs too, which is the point — those arrive with no command-line flags.
+
+Either way, the printer reports "out of paper" between hand-fed labels.
+`bt820print` waits for the next one instead of failing, and says so:
 
 ```
 printer says: out of paper -- feed a label (60s)...
@@ -126,6 +141,12 @@ layout before committing a label to it.
 ---
 
 ## Troubleshooting
+
+**Every label prints twice.**
+You're feeding labels one at a time on gap media. Run
+`bt820ctl media continuous` — see "Feeding labels by hand" above. This is the
+printer's paper-out recovery, not a duplicated job: the driver sends exactly one
+`BITMAP` and one `PRINT` per label.
 
 **The label prints upside down.**
 Add `--direction 1`.
@@ -202,6 +223,12 @@ print head past its edge, so it rounds down to 808. The missing 0.02" comes out
 of the margin, not the label content.
 
 ### Notes for anyone building on this
+
+This firmware's TSPL vocabulary is narrow. The vendor driver only ever emits
+`SET CUTTER`, `SET PARTIAL_CUTTER`, `SET PEEL`, `SET TEAR`, `SHIFT` and `FEED`
+— there is no `SET REPRINT`, so you cannot turn off paper-out reprinting that
+way; it is silently ignored. Continuous media is the lever that works.
+
 
 Three things cost real time to work out, all in `share/bt820.conf`:
 
