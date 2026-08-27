@@ -48,8 +48,8 @@ formula = f'''class Bt820 < Formula
   include Language::Python::Virtualenv
 
   desc "Driver for the REKDOM BT820 4x6 thermal label printer (Rongta RP4xx, TSPL)"
-  homepage "https://github.com/jackharvest/bt820"
-  url "https://github.com/jackharvest/bt820/archive/refs/tags/{TAG}.tar.gz"
+  homepage "https://github.com/jackharvest/bt820-macos-driver"
+  url "https://github.com/jackharvest/bt820-macos-driver/archive/refs/tags/{TAG}.tar.gz"
   sha256 "REPLACE_AFTER_TAGGING"
   license "MIT"
 

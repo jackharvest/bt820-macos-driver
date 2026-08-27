@@ -48,7 +48,7 @@ tap — without it you get *"Refusing to load formula from untrusted tap."*
 ### Installer
 
 Download the **`.pkg`** from
-[Releases](https://github.com/jackharvest/bt820/releases) and double-click it.
+[Releases](https://github.com/jackharvest/bt820-macos-driver/releases) and double-click it.
 Nothing else needs to be installed first.
 
 Two things to know:
@@ -309,7 +309,7 @@ Tag and push, then fill in the formula's `sha256` (it can only be computed once
 GitHub is serving the tag tarball):
 
 ```sh
-curl -sL https://github.com/jackharvest/bt820/archive/refs/tags/v1.0.2.tar.gz | shasum -a 256
+curl -sL https://github.com/jackharvest/bt820-macos-driver/archive/refs/tags/v1.0.2.tar.gz | shasum -a 256
 ```
 
 The formula lives in `jackharvest/homebrew-tap` as `Formula/bt820.rb`.

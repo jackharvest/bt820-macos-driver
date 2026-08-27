@@ -12,7 +12,7 @@ license = {text = "MIT"}
 dependencies = ["pyusb>=1.2.1", "Pillow>=10.0.0", "pypdfium2>=4.0.0"]
 
 [project.urls]
-Homepage = "https://github.com/jackharvest/bt820"
+Homepage = "https://github.com/jackharvest/bt820-macos-driver"
 
 [project.scripts]
 bt820print = "bt820.cli:main"
