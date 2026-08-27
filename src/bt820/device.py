@@ -78,10 +78,28 @@ class BT820:
         except usb.core.USBError:
             return b""
 
+    def drain(self):
+        """Discard any unread reply so queries cannot desynchronise."""
+        while self.read(64, timeout=60):
+            pass
+
     def query(self, cmd, pause=0.35):
+        self.drain()
         self.write(cmd)
         time.sleep(pause)
         return self.read()
+
+    # The TSPL status byte is a bit field -- conditions combine, e.g. 0x24 is
+    # "printing" plus "out of paper".
+    STATUS_BITS = (
+        (0x01, "head open"),
+        (0x02, "paper jam"),
+        (0x04, "out of paper"),
+        (0x08, "out of ribbon"),
+        (0x10, "paused"),
+        (0x20, "printing"),
+        (0x80, "error"),
+    )
 
     def status(self):
         """TSPL <ESC>!? -- 0x00 means ready."""
@@ -89,16 +107,21 @@ class BT820:
         if not raw:
             return None, "no response"
         code = raw[0]
-        flags = {
-            0x00: "ready", 0x01: "head open", 0x02: "paper jam",
-            0x03: "head open + paper jam", 0x04: "out of paper",
-            0x08: "out of ribbon", 0x10: "pause", 0x20: "printing",
-        }
-        return code, flags.get(code, f"unknown status 0x{code:02X}")
+        if code == 0x00:
+            return code, "ready"
+        names = [n for bit, n in self.STATUS_BITS if code & bit]
+        return code, ", ".join(names) if names else f"unknown status 0x{code:02X}"
+
+    def ok(self):
+        """True when nothing is wrong -- idle or merely busy printing."""
+        code, _ = self.status()
+        return code is not None and (code & ~0x20) == 0
 
     def info(self):
+        # Note: this printer answers ~!@ with a small integer that changes
+        # between sessions, not the model/firmware string TSPL specifies, so
+        # it is deliberately not reported as a version.
         return {
-            "firmware": self.query(b"~!@\r\n").decode(errors="replace").strip(),
             "codepage": self.query(b"~!I\r\n").decode(errors="replace").strip(),
             "serial": self.dev.serial_number,
         }

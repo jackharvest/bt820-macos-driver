@@ -26,7 +26,7 @@ click through.
 
 ### Installer
 
-Download **`BT820-1.0.0.pkg`** from
+Download the **`.pkg`** from
 [Releases](https://github.com/jackharvest/bt820/releases) and double-click it.
 Nothing else needs to be installed first.
 
@@ -126,6 +126,10 @@ Don't use `--dither` on anything with a barcode — it breaks up the bars. Try a
 darker print (`-d 12`) or a slower one (`-s 2`) instead. `--threshold` also
 helps: lower puts down more ink.
 
+**It says "printer not ready: out of paper".**
+Exactly what it sounds like — reload the label roll. `bt820print` deliberately
+refuses to send a job in that state rather than dropping it into a void.
+
 **Nothing prints and `--status` says it can't find the printer.**
 Check the USB cable and that the printer is powered on. If you installed from
 source or Homebrew, make sure `libusb` is present (`brew install libusb`).
@@ -213,14 +217,14 @@ The scripts run from either layout — this repo, or a flat install like
 
 ```sh
 packaging/build-pkg.sh            # -> build/BT820-<version>.pkg
-packaging/gen-formula.py v1.0.0   # refresh PyPI checksums
+packaging/gen-formula.py v1.0.1   # refresh PyPI checksums
 ```
 
 Tag and push, then fill in the formula's `sha256` (it can only be computed once
 GitHub is serving the tag tarball):
 
 ```sh
-curl -sL https://github.com/jackharvest/bt820/archive/refs/tags/v1.0.0.tar.gz | shasum -a 256
+curl -sL https://github.com/jackharvest/bt820/archive/refs/tags/v1.0.1.tar.gz | shasum -a 256
 ```
 
 The formula lives in `jackharvest/homebrew-tap` as `Formula/bt820.rb`.

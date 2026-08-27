@@ -5,7 +5,7 @@ containing the literal string "TSPL", and BT820Render.dll emits TSPL verbs
 (SIZE/GAP/DIRECTION/DENSITY/SPEED/BITMAP/PRINT), so the printer speaks TSC's
 label language over a bog-standard USB printer-class interface.
 """
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 VID, PID = 0x0FE6, 0x811E
 DPI = 203

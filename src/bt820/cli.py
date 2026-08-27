@@ -57,7 +57,6 @@ def main(argv=None):
         with BT820() as dev:
             code, msg = dev.status()
             info = dev.info()
-            print(f"firmware : {info['firmware']}")
             print(f"codepage : {info['codepage']}")
             print(f"serial   : {info['serial']}")
             print(f"status   : {msg}" + (f" (0x{code:02X})" if code is not None else ""))
@@ -93,7 +92,8 @@ def main(argv=None):
 
     with BT820() as dev:
         code, msg = dev.status()
-        if code not in (0, None, 0x20):
+        # Everything except the "printing" bit means we should not start a job.
+        if code is not None and (code & ~0x20) != 0:
             print(f"printer not ready: {msg}", file=sys.stderr)
             return 1
         for n, job in enumerate(jobs, 1):
