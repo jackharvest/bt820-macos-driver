@@ -3,11 +3,14 @@ class Bt820 < Formula
 
   desc "Driver for the REKDOM BT820 4x6 thermal label printer (Rongta RP4xx, TSPL)"
   homepage "https://github.com/jackharvest/bt820-macos-driver"
-  url "https://github.com/jackharvest/bt820-macos-driver/archive/refs/tags/v1.1.0.tar.gz"
-  sha256 "f6c328b5df26af0af1d67d12136fe7a47e06b6c84f4faf57bd12610cfac9acb2"
+  url "https://github.com/jackharvest/bt820-macos-driver/archive/refs/tags/v1.1.1.tar.gz"
+  sha256 "f2aa1b5edb2019858cb60e96ba10c1aab9bee9b0d36b1f962851148d8abb9631"
   license "MIT"
 
   # freetype through webp are Pillow's image backends; it builds from source.
+  # macOS ships ippeveprinter from CUPS 2.3.4, which iOS cannot submit jobs
+  # to; 2.4.x fixes it. Needed for AirPrint from iPhone/iPad.
+  depends_on "cups"
   depends_on "freetype"
   depends_on "jpeg-turbo"
   depends_on "libtiff"
