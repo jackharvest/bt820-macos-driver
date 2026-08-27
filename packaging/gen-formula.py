@@ -54,6 +54,9 @@ formula = f'''class Bt820 < Formula
   license "MIT"
 
   # freetype through webp are Pillow's image backends; it builds from source.
+  # macOS ships ippeveprinter from CUPS 2.3.4, which iOS cannot submit jobs
+  # to; 2.4.x fixes it. Needed for AirPrint from iPhone/iPad.
+  depends_on "cups"
   depends_on "freetype"
   depends_on "jpeg-turbo"
   depends_on "libtiff"

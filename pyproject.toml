@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bt820"
-version = "1.1.0"
+version = "1.1.1"
 description = "Userspace driver for the REKDOM BT820 4x6 thermal label printer (Rongta RP4xx / TSPL)"
 readme = "README.md"
 requires-python = ">=3.9"

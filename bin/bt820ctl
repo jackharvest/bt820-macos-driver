@@ -20,6 +20,14 @@ LOG="$HOME/Library/Logs/bt820-queue.log"
 NAME="BT820 Label Printer"
 QUEUE=BT820
 IPP2PPD=/System/Library/Printers/Libraries/ipp2ppd
+# macOS ships ippeveprinter from CUPS 2.3.4 (2020), which rejects the body iOS
+# sends with Create-Job and leaves the phone retrying forever. Prefer a newer
+# one if Homebrew's cups is installed.
+IPPEVE=/usr/bin/ippeveprinter
+for c in /opt/homebrew/opt/cups/bin/ippeveprinter /opt/homebrew/opt/cups/sbin/ippeveprinter \
+         /usr/local/opt/cups/bin/ippeveprinter /usr/local/opt/cups/sbin/ippeveprinter; do
+  [ -x "$c" ] && IPPEVE="$c"
+done
 PORT=8820
 
 write_plist() {
@@ -32,7 +40,7 @@ write_plist() {
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/ippeveprinter</string>
+    <string>$IPPEVE</string>
     <string>-a</string><string>$CONF</string>
     <string>-c</string><string>$FILTER</string>
     <string>-d</string><string>$SPOOL</string>

@@ -172,9 +172,21 @@ that never advertises the `URF=` capability iOS requires, so the printer stays
 invisible no matter what you tick. Instead the driver's own IPP printer
 registers the `_universal` Bonjour subtype that iOS actually browses.
 
-iOS sends **Apple Raster** (`image/urf`) rather than PDF, which
-`src/bt820/urf.py` decodes directly. Because iOS rasterises to the size and
-resolution we advertise, pages arrive already at 4×6 and 203 dpi.
+**Requires a newer CUPS than macOS ships.** macOS bundles `ippeveprinter` from
+CUPS 2.3.4 (2020), which rejects the body iOS sends with `Create-Job`
+(*"Unexpected document data following request"*), leaving the phone retrying
+forever. Homebrew's CUPS 2.4.x fixes it, and the Homebrew formula pulls it in:
+
+```sh
+brew install cups
+```
+
+The queue prefers that binary automatically and falls back to the system one,
+so printing from the Mac works either way — only iOS needs the newer server.
+If you installed from the `.pkg`, install Homebrew CUPS separately for AirPrint.
+
+Jobs arrive as PDF. `src/bt820/urf.py` also decodes Apple Raster
+(`image/urf`) for clients that send it.
 
 Your Mac must be awake and `bt820ctl start` must have run.
 
