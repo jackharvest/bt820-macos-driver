@@ -3,8 +3,8 @@ class Bt820 < Formula
 
   desc "Driver for the REKDOM BT820 4x6 thermal label printer (Rongta RP4xx, TSPL)"
   homepage "https://github.com/jackharvest/bt820-macos-driver"
-  url "https://github.com/jackharvest/bt820-macos-driver/archive/refs/tags/v1.1.1.tar.gz"
-  sha256 "f2aa1b5edb2019858cb60e96ba10c1aab9bee9b0d36b1f962851148d8abb9631"
+  url "https://github.com/jackharvest/bt820-macos-driver/archive/refs/tags/v1.1.2.tar.gz"
+  sha256 "610ffc9a3ef640c556c3446719c1c47bf51d91a2e77e47ecd44932df7bc661d6"
   license "MIT"
 
   # freetype through webp are Pillow's image backends; it builds from source.
