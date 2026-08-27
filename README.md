@@ -146,6 +146,7 @@ Scanners and in every app's ⌘P dialog, and it comes back after a reboot.
 
 ```sh
 bt820ctl status         # is it running? is the printer ready?
+bt820ctl airprint       # can iPhones print to it, and if not, what's missing
 bt820ctl log            # what happened to my last job
 bt820ctl dryrun on      # test without wasting labels
 bt820ctl stop           # turn it off
@@ -183,7 +184,11 @@ brew install cups
 
 The queue prefers that binary automatically and falls back to the system one,
 so printing from the Mac works either way — only iOS needs the newer server.
-If you installed from the `.pkg`, install Homebrew CUPS separately for AirPrint.
+If you installed from the `.pkg`, install Homebrew CUPS separately for
+AirPrint. You don't have to remember that: the installer's final screen says
+so, `bt820ctl airprint` reports it, and until it's sorted the printer's
+**Location** in Printers & Scanners reads *"USB - for AirPrint: brew install
+cups"* instead of *"USB - AirPrint ready"*.
 
 Jobs arrive as PDF. `src/bt820/urf.py` also decodes Apple Raster
 (`image/urf`) for clients that send it.

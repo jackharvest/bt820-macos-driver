@@ -62,18 +62,46 @@ PLIST
 # A queue made with a bare -v and no driver comes out "raw", and macOS 26 hides
 # raw queues from Printers & Scanners entirely. Apple's ipp2ppd turns our own
 # IPP attributes into a PPD, which yields a proper driverless AirPrint queue.
+# macOS bundles ippeveprinter from CUPS 2.3.4, which rejects the body iOS sends
+# with Create-Job, so AirPrint jobs never arrive. 2.4.x fixes it.
+airprint_ok() {
+  case "$IPPEVE" in /usr/bin/ippeveprinter) return 1 ;; *) return 0 ;; esac
+}
+
+airprint_note() {
+  if airprint_ok; then
+    echo "AirPrint: on -- printing from an iPhone or iPad should work."
+  else
+    echo
+    echo "AirPrint from iPhone/iPad is NOT available yet."
+    echo "  macOS ships ippeveprinter from CUPS 2.3.4, which cannot accept jobs"
+    echo "  from iOS. Install a newer CUPS and restart the queue:"
+    echo
+    echo "      brew install cups && bt820ctl start"
+    echo
+    echo "  Printing from this Mac works either way."
+  fi
+}
+
 queue_is_raw() {
   lpoptions -p "$QUEUE" 2>/dev/null | grep -q "Local Raw Printer"
 }
 
 create_queue() {
   uri="ipp://localhost:$PORT/ipp/print"
+  # Location is free text and shows in Printers & Scanners, so use it to say
+  # how to turn AirPrint on when this Mac cannot do it yet.
+  if airprint_ok; then
+    where="USB - AirPrint ready"
+  else
+    where="USB - for AirPrint: brew install cups"
+  fi
   ppd=$(mktemp -t bt820).ppd
   if [ -x "$IPP2PPD" ] && "$IPP2PPD" "$uri" "" >"$ppd" 2>/dev/null && [ -s "$ppd" ]; then
     lpadmin -p "$QUEUE" -E -v "$uri" -P "$ppd" \
-      -D "$NAME" -L "USB" 2>&1 | grep -vi deprecated || true
+      -D "$NAME" -L "$where" 2>&1 | grep -vi deprecated || true
   else
-    lpadmin -p "$QUEUE" -E -v "$uri" -D "$NAME" -L "USB"
+    lpadmin -p "$QUEUE" -E -v "$uri" -D "$NAME" -L "$where"
     echo "Note: no ipp2ppd on this system -- the queue works from the command"
     echo "line but may not show in Printers & Scanners."
   fi
@@ -98,6 +126,7 @@ case "${1:-status}" in
     fi
     echo "Queue running as \"$NAME\" on port $PORT (CUPS queue: $QUEUE)."
     echo "Print with:  lp -d $QUEUE label.pdf      or Cmd+P and pick $QUEUE."
+    airprint_note
     ;;
   stop)
     launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
@@ -110,6 +139,8 @@ case "${1:-status}" in
       echo "queue: stopped"
     fi
     [ -f "$STATE/dryrun" ] && echo "DRY RUN is on (rm \"$STATE/dryrun\" to print for real)"
+    echo "server: $IPPEVE"
+    airprint_note
     "$BIN" --status || true
     ;;
   dryrun)
@@ -126,6 +157,14 @@ case "${1:-status}" in
       show) lpoptions -p "$QUEUE" 2>/dev/null | tr ' ' '\n' | grep printer-is-shared || true ;;
       *) echo "usage: bt820ctl share {on|off|show}" >&2; exit 2 ;;
     esac ;;
+  airprint)
+    echo "server: $IPPEVE"
+    airprint_note
+    if airprint_ok; then
+      echo
+      echo "Advertised to iOS as \"$NAME\". Check with:"
+      echo "  dns-sd -B _ipp._tcp,_universal local"
+    fi ;;
   media)
     mkdir -p "$STATE"
     case "${2:-show}" in
@@ -167,5 +206,5 @@ case "${1:-status}" in
     echo "Left alone: $LOG, and the program files themselves."
     echo "No kexts, no system files, no sudo were ever involved."
     ;;
-  *) echo "usage: bt820ctl {start|stop|status|media continuous|gap|share on|off|dryrun on|off|log [n]|uninstall}" >&2; exit 2 ;;
+  *) echo "usage: bt820ctl {start|stop|status|airprint|media continuous|gap|share on|off|dryrun on|off|log [n]|uninstall}" >&2; exit 2 ;;
 esac
