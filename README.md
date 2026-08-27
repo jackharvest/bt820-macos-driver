@@ -1,13 +1,31 @@
-# BT820 Label Printer for macOS
+# BT820 macOS Driver
 
-Print 4×6 shipping labels on the **REKDOM BT820** from a Mac.
+**A macOS driver for the REKDOM BT820 4×6 thermal label printer** — the same
+hardware also sold as the **Rongta RP4xx** and various rebadges. Print UPS,
+FedEx, USPS and Amazon return labels from your Mac.
 
-macOS has no driver for this printer, and the vendor's download site is
-frequently down. This is a complete replacement — print from the command line,
-or add it as a normal printer and just hit **⌘P**.
+There is no official macOS driver for this printer, and the vendor's download
+site is frequently down. This is a complete replacement: print from the command
+line, or add it as a normal printer and hit **⌘P**.
 
-Works on macOS 13 and later, including macOS 26 (Tahoe), where Apple removed the
-older printer-driver mechanisms that tools like this used to rely on.
+Works on macOS 13 and later — **including macOS 26 (Tahoe)**, where Apple
+removed raw print queues and PPD printer drivers, which is why most older
+workarounds for cheap thermal printers no longer function.
+
+### Will this work with my printer?
+
+Check the USB ID. Plug it in and run:
+
+```sh
+system_profiler SPUSBDataType | grep -A 4 -i printer
+```
+
+If you see vendor `0x0fe6` and product `0x811e`, this driver is for your
+printer, whatever name is on the box. Mine reports as `BT820 Printer`.
+
+Other Rongta RP4xx models (RP410, RP420) speak the same TSPL language and will
+very likely work, possibly needing a different USB ID in `src/bt820/__init__.py`
+— but I only own a BT820, so that is untested.
 
 ---
 
