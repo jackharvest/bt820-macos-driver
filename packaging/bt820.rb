@@ -3,8 +3,8 @@ class Bt820 < Formula
 
   desc "Driver for the REKDOM BT820 4x6 thermal label printer (Rongta RP4xx, TSPL)"
   homepage "https://github.com/jackharvest/bt820"
-  url "https://github.com/jackharvest/bt820/archive/refs/tags/v1.0.0.tar.gz"
-  sha256 "bf0f4d1451565bda15395f8f87339e0590fce9e66b1b146daed3acfaeb1e0d5d"
+  url "https://github.com/jackharvest/bt820/archive/refs/tags/v1.0.1.tar.gz"
+  sha256 "9c0a43a994ef91fe123c3966f54b829c7a346f9870adf1e709539a9c3288b8b4"
   license "MIT"
 
   # freetype through webp are Pillow's image backends; it builds from source.
@@ -45,8 +45,8 @@ class Bt820 < Formula
     # jpeg-turbo is keg-only, so Pillow cannot find its headers on its own.
     # Point the compiler at every image backend explicitly.
     backends = %w[freetype jpeg-turbo libtiff little-cms2 openjpeg webp]
-    ENV.append "CPPFLAGS", backends.map { |f| "-I#{Formula[f].opt_include}" }.join(" ")
-    ENV.append "LDFLAGS", backends.map { |f| "-L#{Formula[f].opt_lib}" }.join(" ")
+    ENV.append "CPPFLAGS", backends.map { |f| "-I#{formula_opt_include(f)}" }.join(" ")
+    ENV.append "LDFLAGS", backends.map { |f| "-L#{formula_opt_lib(f)}" }.join(" ")
 
     venv = virtualenv_create(libexec, "python3.13")
     venv.pip_install resources.reject { |r| r.name == "pypdfium2" }

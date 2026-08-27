@@ -83,8 +83,8 @@ formula = f'''class Bt820 < Formula
     # jpeg-turbo is keg-only, so Pillow cannot find its headers on its own.
     # Point the compiler at every image backend explicitly.
     backends = %w[freetype jpeg-turbo libtiff little-cms2 openjpeg webp]
-    ENV.append "CPPFLAGS", backends.map {{ |f| "-I#{{Formula[f].opt_include}}" }}.join(" ")
-    ENV.append "LDFLAGS", backends.map {{ |f| "-L#{{Formula[f].opt_lib}}" }}.join(" ")
+    ENV.append "CPPFLAGS", backends.map {{ |f| "-I#{{formula_opt_include(f)}}" }}.join(" ")
+    ENV.append "LDFLAGS", backends.map {{ |f| "-L#{{formula_opt_lib(f)}}" }}.join(" ")
 
     venv = virtualenv_create(libexec, "python3.13")
     venv.pip_install resources.reject {{ |r| r.name == "pypdfium2" }}
