@@ -179,6 +179,11 @@ Run `bt820ctl start` again — it detects a queue left in the old "raw" form and
 rebuilds it as a driverless one. See the note below on why raw queues are
 invisible.
 
+**The queue vanished after uninstalling one of two installs.**
+The queue, LaunchAgent and settings are shared between the Homebrew and `.pkg`
+installs. Uninstalling either tears the queue down; the remaining one brings it
+back with `bt820ctl start`. Your media setting is preserved.
+
 **The ⌘P queue stopped working.**
 
 ```sh

@@ -41,13 +41,21 @@ ln -sf "$PREFIX/bt820ctl"   "$PAYLOAD/usr/local/bin/bt820ctl"
 
 cat > "$PAYLOAD$PREFIX/uninstall.sh" <<'UNINSTALL'
 #!/bin/sh
-# Remove the BT820 driver completely.
+# Remove the copy of the BT820 driver installed by the .pkg.
 set -e
+# bt820ctl keeps shared state (queue, LaunchAgent, settings) intact if another
+# install is present, so this is safe to run alongside a Homebrew install.
 /usr/local/lib/bt820/bt820ctl uninstall || true
 echo "Removing program files (needs admin)..."
 sudo rm -rf /usr/local/lib/bt820 /usr/local/bin/bt820print /usr/local/bin/bt820ctl
 sudo pkgutil --forget com.jackharvest.bt820 2>/dev/null || true
-echo "Done. Nothing of the BT820 driver remains."
+if [ -x /opt/homebrew/bin/bt820ctl ]; then
+  echo
+  echo "The Homebrew install is still here. Restart its queue with:"
+  echo "  /opt/homebrew/bin/bt820ctl start"
+else
+  echo "Done. Nothing of the BT820 driver remains."
+fi
 UNINSTALL
 chmod +x "$PAYLOAD$PREFIX/uninstall.sh"
 

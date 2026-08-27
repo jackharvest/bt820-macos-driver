@@ -125,10 +125,28 @@ case "${1:-status}" in
     esac ;;
   log)  tail -n "${2:-40}" "$LOG" ;;
   uninstall)
+    # Another copy may still be installed (Homebrew alongside the .pkg, say).
+    # The queue, LaunchAgent and settings are shared, so tearing them down
+    # would break the copy that remains.
+    other=""
+    for cand in /opt/homebrew/bin/bt820ctl /usr/local/bin/bt820ctl; do
+      [ -x "$cand" ] || continue
+      [ "$(cd "$(dirname "$cand")" && pwd)" = "$SELF" ] && continue
+      other="$cand"
+    done
     launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-    rm -f "$PLIST"; rm -rf "$SPOOL" "$STATE"
+    rm -f "$PLIST"; rm -rf "$SPOOL"
     lpadmin -x "$QUEUE" 2>/dev/null && echo "Removed CUPS queue \"$QUEUE\"." || true
-    echo "Removed: $PLIST, $SPOOL, $STATE"
+    echo "Removed: $PLIST, $SPOOL"
+    if [ -n "$other" ]; then
+      echo
+      echo "Kept your settings ($STATE) -- another install is still present:"
+      echo "  $other"
+      echo "Bring its queue back with:  $other start"
+    else
+      rm -rf "$STATE"
+      echo "Removed: $STATE"
+    fi
     echo "Left alone: $LOG, and the program files themselves."
     echo "No kexts, no system files, no sudo were ever involved."
     ;;
