@@ -117,6 +117,24 @@ class BT820:
         code, _ = self.status()
         return code is not None and (code & ~0x20) == 0
 
+    def wait_ready(self, timeout=15.0, poll=1.0):
+        """Wait for the printer to settle, then report its state.
+
+        Two cases need this. Straight after a job the paper is still
+        positioning, and back-to-back queue jobs would otherwise be refused
+        inside that window. And when labels are hand-fed one at a time, the
+        printer really is out of paper between them -- so wait for the next
+        one rather than failing the job.
+        """
+        deadline = time.monotonic() + timeout
+        while True:
+            code, msg = self.status()
+            if code is None or (code & ~0x20) == 0:
+                return code, msg
+            if time.monotonic() >= deadline:
+                return code, msg
+            time.sleep(poll)
+
     def info(self):
         # Note: this printer answers ~!@ with a small integer that changes
         # between sessions, not the model/firmware string TSPL specifies, so

@@ -81,6 +81,20 @@ bt820print --preview check.png label.pdf
 | `-r 180` | rotate: `cw`, `ccw`, `180`, `none` |
 | `-p 2` | print page 2 of a multi-page PDF |
 | `--dither` | for photos — see the warning under Troubleshooting |
+| `--wait 120` | how long to wait for the printer to be ready (default 60s) |
+
+### Feeding labels by hand
+
+If you feed labels one at a time rather than using a roll, the printer reports
+"out of paper" between them. `bt820print` waits for the next label instead of
+failing, and tells you it is waiting:
+
+```
+printer says: out of paper -- feed a label (60s)...
+```
+
+Feed one and the job prints itself. Use `--wait` to change how long it holds on
+for.
 
 ---
 
@@ -127,8 +141,9 @@ darker print (`-d 12`) or a slower one (`-s 2`) instead. `--threshold` also
 helps: lower puts down more ink.
 
 **It says "printer not ready: out of paper".**
-Exactly what it sounds like — reload the label roll. `bt820print` deliberately
-refuses to send a job in that state rather than dropping it into a void.
+Exactly what it sounds like — load a label. `bt820print` waits up to 60 seconds
+(`--wait`) for one first, and only then gives up, rather than dropping the job
+into a void.
 
 **Nothing prints and `--status` says it can't find the printer.**
 Check the USB cable and that the printer is powered on. If you installed from
@@ -217,14 +232,14 @@ The scripts run from either layout — this repo, or a flat install like
 
 ```sh
 packaging/build-pkg.sh            # -> build/BT820-<version>.pkg
-packaging/gen-formula.py v1.0.1   # refresh PyPI checksums
+packaging/gen-formula.py v1.0.2   # refresh PyPI checksums
 ```
 
 Tag and push, then fill in the formula's `sha256` (it can only be computed once
 GitHub is serving the tag tarball):
 
 ```sh
-curl -sL https://github.com/jackharvest/bt820/archive/refs/tags/v1.0.1.tar.gz | shasum -a 256
+curl -sL https://github.com/jackharvest/bt820/archive/refs/tags/v1.0.2.tar.gz | shasum -a 256
 ```
 
 The formula lives in `jackharvest/homebrew-tap` as `Formula/bt820.rb`.

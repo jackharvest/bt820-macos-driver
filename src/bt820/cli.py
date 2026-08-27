@@ -44,6 +44,9 @@ def main(argv=None):
                    help="label gap in mm (default 2.0)")
     p.add_argument("--preview", metavar="PNG",
                    help="write the exact 1-bit bitmap here instead of printing")
+    p.add_argument("--wait", type=float, default=60.0, metavar="SEC",
+                   help="how long to wait for the printer to be ready, e.g. for "
+                        "the next hand-fed label (default 60)")
     p.add_argument("--status", action="store_true", help="report printer status and exit")
     p.add_argument("--calibrate", action="store_true",
                    help="re-run gap sensing (feeds a few blank labels)")
@@ -91,10 +94,19 @@ def main(argv=None):
         return 0
 
     with BT820() as dev:
-        code, msg = dev.status()
         # Everything except the "printing" bit means we should not start a job.
+        # Wait first: the printer may still be positioning paper from the last
+        # job, or waiting for the next hand-fed label.
+        code, msg = dev.status()
+        if code is not None and (code & ~0x20) != 0:
+            hint = "feed a label" if code & 0x04 else "waiting"
+            print(f"printer says: {msg} -- {hint} "
+                  f"({a.wait:g}s)...", file=sys.stderr)
+            code, msg = dev.wait_ready(timeout=a.wait)
         if code is not None and (code & ~0x20) != 0:
             print(f"printer not ready: {msg}", file=sys.stderr)
+            if code & 0x04:
+                print("Load a label and run this again.", file=sys.stderr)
             return 1
         for n, job in enumerate(jobs, 1):
             dev.write(job)
